@@ -139,7 +139,7 @@ systray_box_init (SystrayBox *box)
   box->n_hidden_childeren = 0;
   box->n_visible_children = 0;
   box->horizontal = TRUE;
-  box->show_hidden = FALSE;
+  box->show_hidden = TRUE;
 }
 
 

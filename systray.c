@@ -83,12 +83,12 @@ static void     systray_dialog_clear_clicked         (GtkWidget             *but
 
 struct _SystrayClass
 {
-  GtkBinClass __parent__;
+  GtkHBoxClass __parent__;
 };
 
 struct _Systray
 {
-  GtkBinClass __parent__;
+  GtkHBoxClass __parent__;
 
   /* systray manager */
   SystrayManager *manager;
@@ -96,13 +96,9 @@ struct _Systray
   guint           idle_startup;
 
   /* widgets */
-  GtkWidget      *frame;
-  GtkWidget      *hbox;
   GtkWidget      *box;
-  // GtkWidget      *button;
 
   /* settings */
-  guint           show_frame : 1;
   GHashTable     *names;
 };
 
@@ -110,7 +106,6 @@ enum
 {
   PROP_0,
   PROP_SIZE_MAX,
-  PROP_SHOW_FRAME,
   PROP_NAMES_HIDDEN,
   PROP_NAMES_VISIBLE
 };
@@ -124,7 +119,7 @@ enum
 };
 
 
-G_DEFINE_TYPE(Systray, systray, GTK_TYPE_BIN)
+G_DEFINE_TYPE(Systray, systray, GTK_TYPE_HBOX)
 
 
 /* known applications to improve the icon and name */
@@ -162,13 +157,6 @@ systray_class_init (SystrayClass *klass)
                                                       G_PARAM_READWRITE));
 
   g_object_class_install_property (gobject_class,
-                                   PROP_SHOW_FRAME,
-                                   g_param_spec_boolean ("show-frame",
-                                                         NULL, NULL,
-                                                         TRUE,
-                                                         G_PARAM_READWRITE));
-
-  g_object_class_install_property (gobject_class,
                                    PROP_NAMES_HIDDEN,
                                    g_param_spec_boxed ("names-hidden",
                                                        NULL, NULL,
@@ -183,18 +171,6 @@ systray_class_init (SystrayClass *klass)
                                                        G_PARAM_READWRITE));
 }
 
-/*
-static void
-systray_set_button_visible(GObject *source, GParamSpec *source_spec, GObject *dest)
-{
-    GValue value;
-    (void) source_spec;
-
-    g_object_get_property(source, "has-hidden", &value);
-    g_object_set_property(dest, "visible", &value);
-}
-*/
-
 
 static void
 systray_init (Systray *plugin)
@@ -202,40 +178,16 @@ systray_init (Systray *plugin)
   GtkRcStyle *style;
 
   plugin->manager = NULL;
-  plugin->show_frame = TRUE;
   plugin->idle_startup = 0;
   plugin->names = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, NULL);
 
-  plugin->frame = gtk_frame_new (NULL);
-  gtk_container_add (GTK_CONTAINER (plugin), plugin->frame);
-  gtk_frame_set_shadow_type (GTK_FRAME (plugin->frame), GTK_SHADOW_ETCHED_IN);
-  gtk_widget_show (plugin->frame);
-
-  style = gtk_rc_style_new ();
-  style->xthickness = style->ythickness = 1;
-  gtk_widget_modify_style (plugin->frame, style);
-  g_object_unref (G_OBJECT (style));
-
-  plugin->hbox = gtk_hbox_new (FALSE, 2);
-  gtk_container_add (GTK_CONTAINER (plugin->frame), plugin->hbox);
-  gtk_widget_show (plugin->hbox);
-
   plugin->box = systray_box_new ();
   systray_box_set_show_hidden(SYSTRAY_BOX(plugin->box), TRUE);
-  gtk_box_pack_start (GTK_BOX (plugin->hbox), plugin->box, TRUE, TRUE, 0);
+  gtk_container_add (GTK_CONTAINER (plugin), plugin->box);
   g_signal_connect (G_OBJECT (plugin->box), "expose-event",
       G_CALLBACK (systray_box_expose_event), NULL);
   gtk_container_set_border_width (GTK_CONTAINER (plugin->box), FRAME_SPACING);
   gtk_widget_show (plugin->box);
-
-  /*plugin->button = xfce_arrow_button_new (GTK_ARROW_RIGHT);
-  gtk_box_pack_start (GTK_BOX (plugin->hbox), plugin->button, FALSE, FALSE, 0);
-  g_signal_connect (G_OBJECT (plugin->button), "toggled",
-      G_CALLBACK (systray_button_toggled), plugin);
-  gtk_button_set_relief (GTK_BUTTON (plugin->button), GTK_RELIEF_NONE);
-  g_signal_connect (G_OBJECT(plugin->box), "notify::has-hidden",
-          G_CALLBACK(systray_set_button_visible), G_OBJECT(plugin->button));
-  */
 
   g_signal_connect_after(G_OBJECT(plugin), "expose-event", G_CALLBACK(systray_construct), NULL);
 }
@@ -262,10 +214,6 @@ systray_get_property (GObject    *object,
     case PROP_SIZE_MAX:
       g_value_set_uint (value,
           systray_box_get_size_max (SYSTRAY_BOX (plugin->box)));
-      break;
-
-    case PROP_SHOW_FRAME:
-      g_value_set_boolean (value, plugin->show_frame);
       break;
 
    case PROP_NAMES_VISIBLE:
@@ -299,7 +247,6 @@ systray_set_property (GObject      *object,
                              GParamSpec   *pspec)
 {
   Systray *plugin = SYSTRAY (object);
-  gboolean       show_frame;
   gboolean       hidden = TRUE;
   GPtrArray     *array;
   const GValue  *tmp;
@@ -312,21 +259,6 @@ systray_set_property (GObject      *object,
     case PROP_SIZE_MAX:
       systray_box_set_size_max (SYSTRAY_BOX (plugin->box),
                                 g_value_get_uint (value));
-      break;
-
-    case PROP_SHOW_FRAME:
-      show_frame = g_value_get_boolean (value);
-      if (plugin->show_frame != show_frame)
-        {
-          plugin->show_frame = show_frame;
-          gtk_frame_set_shadow_type (GTK_FRAME (plugin->frame),
-              show_frame ? GTK_SHADOW_ETCHED_IN : GTK_SHADOW_NONE);
-
-          style = gtk_rc_style_new ();
-          style->xthickness = style->ythickness = show_frame ? 1 : 0;
-          gtk_widget_modify_style (plugin->frame, style);
-          g_object_unref (G_OBJECT (style));
-        }
       break;
 
     case PROP_NAMES_VISIBLE:
@@ -515,20 +447,7 @@ systray_size_changed (GtkWidget *panel_plugin,
                              gint             size)
 {
   Systray *plugin = SYSTRAY (panel_plugin);
-  GtkWidget     *frame = plugin->frame;
-  gint           border = 0;
-
-  /* set the frame border */
-  if (plugin->show_frame && size > 26)
-    border = 1;
-  gtk_container_set_border_width (GTK_CONTAINER (frame), border);
-
-  /* because the allocated size, used in size_requested is always 1 step
-   * behind the allocated size when resizing and during startup, we
-   * correct the maximum size set by the user with the size the panel
-   * will most likely allocated */
-  border += MAX (frame->style->xthickness, frame->style->ythickness);
-  systray_box_set_size_alloc (SYSTRAY_BOX (plugin->box), size - 2 * border);
+  systray_box_set_size_alloc (SYSTRAY_BOX (plugin->box), size);
 
   return TRUE;
 }
