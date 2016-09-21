@@ -37,6 +37,10 @@ typedef enum   _SystrayChildState  SystrayChildState;
 
 GType systray_get_type      (void) G_GNUC_CONST;
 
+GtkWidget *systray_new(void);
+
+
+
 G_END_DECLS
 
 #endif /* !__SYSTRAY_H__ */

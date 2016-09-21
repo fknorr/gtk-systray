@@ -83,12 +83,12 @@ static void     systray_dialog_clear_clicked         (GtkWidget             *but
 
 struct _SystrayClass
 {
-  GtkWidgetClass __parent__;
+  GtkBinClass __parent__;
 };
 
 struct _Systray
 {
-  GtkWidget __parent__;
+  GtkBinClass __parent__;
 
   /* systray manager */
   SystrayManager *manager;
@@ -124,7 +124,7 @@ enum
 };
 
 
-G_DEFINE_TYPE(Systray, systray, GTK_TYPE_WIDGET)
+G_DEFINE_TYPE(Systray, systray, GTK_TYPE_BIN)
 
 
 /* known applications to improve the icon and name */
@@ -235,8 +235,16 @@ systray_init (Systray *plugin)
   g_signal_connect (G_OBJECT(plugin->box), "notify::has-hidden",
           G_CALLBACK(systray_set_button_visible), G_OBJECT(plugin->button));
   */
+
+  g_signal_connect_after(G_OBJECT(plugin), "expose-event", G_CALLBACK(systray_construct), NULL);
 }
 
+
+GtkWidget *
+systray_new(void)
+{
+    return g_object_new(TYPE_SYSTRAY, NULL);
+}
 
 
 static void
@@ -444,6 +452,8 @@ systray_construct (GtkWidget *plugin)
   /* restart internally if compositing changed */
   g_signal_connect (G_OBJECT (plugin), "composited-changed",
      G_CALLBACK (systray_composited_changed), NULL);
+
+  g_signal_handlers_disconnect_by_func(G_OBJECT(plugin), systray_construct, NULL);
 }
 
 
