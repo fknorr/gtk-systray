@@ -221,6 +221,7 @@ systray_init (Systray *plugin)
   gtk_widget_show (plugin->hbox);
 
   plugin->box = systray_box_new ();
+  systray_box_set_show_hidden(SYSTRAY_BOX(plugin->box), TRUE);
   gtk_box_pack_start (GTK_BOX (plugin->hbox), plugin->box, TRUE, TRUE, 0);
   g_signal_connect (G_OBJECT (plugin->box), "expose-event",
       G_CALLBACK (systray_box_expose_event), NULL);
@@ -385,6 +386,7 @@ systray_screen_changed_idle (gpointer user_data)
   screen = gtk_widget_get_screen (GTK_WIDGET (plugin));
   if (systray_manager_register (plugin->manager, screen, &error))
     {
+        systray_orientation_changed(GTK_WIDGET(plugin), GTK_ORIENTATION_HORIZONTAL);
       /* send the plugin orientation
       systray_orientation_changed (PANEL_PLUGIN (plugin),
          xfce_panel_plugin_get_orientation (PANEL_PLUGIN (plugin)));
@@ -453,6 +455,8 @@ systray_construct (GtkWidget *plugin)
   g_signal_connect (G_OBJECT (plugin), "composited-changed",
      G_CALLBACK (systray_composited_changed), NULL);
 
+  systray_screen_changed (GTK_WIDGET (plugin), NULL);
+
   g_signal_handlers_disconnect_by_func(G_OBJECT(plugin), systray_construct, NULL);
 }
 
@@ -486,7 +490,6 @@ static void
 systray_orientation_changed (GtkWidget *panel_plugin,
                                     GtkOrientation   orientation)
 {
-/*
   Systray *plugin = SYSTRAY (panel_plugin);
 
   //xfce_hvbox_set_orientation (HVBOX (plugin->hbox), orientation);
@@ -495,6 +498,7 @@ systray_orientation_changed (GtkWidget *panel_plugin,
   if (G_LIKELY (plugin->manager != NULL))
     systray_manager_set_orientation (plugin->manager, orientation);
 
+  /*
   if (orientation == GTK_ORIENTATION_HORIZONTAL)
     gtk_widget_set_size_request (plugin->button, BUTTON_SIZE, -1);
   else
