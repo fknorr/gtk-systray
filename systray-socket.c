@@ -58,7 +58,7 @@ static void     systray_socket_finalize      (GObject        *object);
 static void     systray_socket_realize       (GtkWidget      *widget);
 static void     systray_socket_size_allocate (GtkWidget      *widget,
                                               GtkAllocation  *allocation);
-static gboolean systray_socket_expose_event  (GtkWidget      *widget, cairo_t *cr, gpointer user_data);
+static gboolean systray_socket_expose_event  (GtkWidget      *widget, cairo_t *cr);
 
 static void     systray_socket_style_set     (GtkWidget      *widget,
                                               GtkStyle       *previous_style);
@@ -195,8 +195,7 @@ systray_socket_size_allocate (GtkWidget     *widget,
 
 static gboolean
 systray_socket_expose_event  (GtkWidget      *widget,
-                                                cairo_t *cr,
-                                                gpointer user_data)
+                                                cairo_t *cr)
 {
   SystraySocket *socket = SYSTRAY_SOCKET (widget);
 
