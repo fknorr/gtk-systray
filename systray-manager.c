@@ -28,6 +28,7 @@
 #include <gdk/gdk.h>
 #include <gdk/gdkx.h>
 #include <gtk/gtk.h>
+#include <gtk/gtkx.h>
 
 #include "systray-manager.h"
 #include "systray-socket.h"
@@ -282,6 +283,34 @@ systray_manager_check_running (GdkScreen *screen)
 #endif
 
 
+static GdkFilterReturn
+client_message_filter(GdkXEvent *xevent, GdkEvent *event, gpointer data)
+{
+ XClientMessageEvent *evt;
+  GdkAtom message_type;
+
+  if (((XEvent *)xevent)->type != ClientMessage)
+    return GDK_FILTER_CONTINUE;
+
+  evt = (XClientMessageEvent *)xevent;
+
+  Atom opcode_atom = XInternAtom (evt->display, "_NET_SYSTEM_TRAY_OPCODE", FALSE);
+  Atom message_data_atom = XInternAtom (evt->display, "_NET_SYSTEM_TRAY_MESSAGE_DATA", FALSE);
+
+  if (evt->message_type == opcode_atom)
+  {
+      return systray_manager_handle_client_message_opcode(event, xevent, data);
+  }
+  else if (evt->message_type == message_data_atom)
+  {
+      return systray_manager_handle_client_message_message_data(event, xevent, data);
+  }
+  else
+  {
+      return GDK_FILTER_CONTINUE;
+  }
+}
+
 
 gboolean
 systray_manager_register (SystrayManager  *manager,
@@ -331,10 +360,10 @@ systray_manager_register (SystrayManager  *manager,
     systray_manager_set_visual (manager);
 
   /* get the current x server time stamp */
-  timestamp = gdk_x11_get_server_time (invisible->window);
+  timestamp = gdk_x11_get_server_time (gtk_widget_get_window(invisible));
 
   /* try to become the selection owner of this display */
-  succeed = gdk_selection_owner_set_for_display (display, invisible->window,
+  succeed = gdk_selection_owner_set_for_display (display, gtk_widget_get_window(invisible),
                                                  manager->selection_atom,
                                                  timestamp, TRUE);
 
@@ -351,7 +380,7 @@ systray_manager_register (SystrayManager  *manager,
       xevent.data.l[0] = timestamp;
       xevent.data.l[1] = gdk_x11_atom_to_xatom_for_display (display,
                                                             manager->selection_atom);
-      xevent.data.l[2] = GDK_WINDOW_XWINDOW (invisible->window);
+      xevent.data.l[2] = gdk_x11_window_get_xid(gtk_widget_get_window(invisible));
       xevent.data.l[3] = 0;
       xevent.data.l[4] = 0;
 
@@ -360,20 +389,13 @@ systray_manager_register (SystrayManager  *manager,
                   False, StructureNotifyMask, (XEvent *)&xevent);
 
       /* system_tray_request_dock and selectionclear */
-      gdk_window_add_filter (invisible->window, systray_manager_window_filter, manager);
+      gdk_window_add_filter (gtk_widget_get_window(invisible), systray_manager_window_filter, manager);
 
       /* get the opcode atom (for both gdk and x11) */
       opcode_atom = gdk_atom_intern ("_NET_SYSTEM_TRAY_OPCODE", FALSE);
       manager->opcode_atom = gdk_x11_atom_to_xatom_for_display (display, opcode_atom);
 
-      /* system_tray_begin_message and system_tray_cancel_message */
-      gdk_display_add_client_message_filter (display,
-          opcode_atom, systray_manager_handle_client_message_opcode, manager);
-
-      /* _net_system_tray_message_data */
-      gdk_display_add_client_message_filter (display,
-          gdk_atom_intern ("_NET_SYSTEM_TRAY_MESSAGE_DATA", FALSE),
-          systray_manager_handle_client_message_message_data, manager);
+      gdk_window_add_filter(NULL, client_message_filter, manager);
 
       g_debug ("registered manager on screen %d", screen_number);
     }
@@ -429,24 +451,24 @@ systray_manager_unregister (SystrayManager *manager)
     return;
 
   g_return_if_fail (GTK_IS_INVISIBLE (invisible));
-  g_return_if_fail (GTK_WIDGET_REALIZED (invisible));
-  g_return_if_fail (GDK_IS_WINDOW (invisible->window));
+  g_return_if_fail (gtk_widget_get_realized (invisible));
+  g_return_if_fail (GDK_IS_WINDOW (gtk_widget_get_window(invisible)));
 
   /* get the display of the invisible window */
   display = gtk_widget_get_display (invisible);
 
   /* remove our handling of the selection if we're the owner */
   owner = gdk_selection_owner_get_for_display (display, manager->selection_atom);
-  if (owner == invisible->window)
+  if (owner == gtk_widget_get_window(invisible))
     {
       gdk_selection_owner_set_for_display (display, NULL,
                                            manager->selection_atom,
-                                           gdk_x11_get_server_time (invisible->window),
+                                           gdk_x11_get_server_time (gtk_widget_get_window(invisible)),
                                            TRUE);
     }
 
   /* remove window filter */
-  gdk_window_remove_filter (invisible->window,
+  gdk_window_remove_filter (gtk_widget_get_window(invisible),
       systray_manager_window_filter, manager);
 
   /* remove all sockets from the hash table */
@@ -647,7 +669,7 @@ systray_manager_handle_cancel_message (SystrayManager      *manager,
                                        XClientMessageEvent *xevent)
 {
   GtkSocket       *socket;
-  GdkNativeWindow  window = xevent->data.l[2];
+  Window  window = xevent->data.l[2];
 
   g_return_if_fail (IS_SYSTRAY_MANAGER (manager));
 
@@ -671,7 +693,7 @@ systray_manager_handle_dock_request (SystrayManager      *manager,
 {
   GtkWidget       *socket;
   GdkScreen       *screen;
-  GdkNativeWindow  window = xevent->data.l[2];
+  Window  window = xevent->data.l[2];
 
   g_return_if_fail (IS_SYSTRAY_MANAGER (manager));
   g_return_if_fail (GTK_IS_INVISIBLE (manager->invisible));
@@ -720,13 +742,13 @@ systray_manager_handle_undock_request (GtkSocket *socket,
                                        gpointer   user_data)
 {
   SystrayManager  *manager = SYSTRAY_MANAGER (user_data);
-  GdkNativeWindow *window;
+  Window window;
 
   g_return_val_if_fail (IS_SYSTRAY_MANAGER (manager), FALSE);
 
   /* remove the socket from the list */
   window = systray_socket_get_window (SYSTRAY_SOCKET (socket));
-  g_hash_table_remove (manager->sockets, GUINT_TO_POINTER (*window));
+  g_hash_table_remove (manager->sockets, GUINT_TO_POINTER (window));
 
   /* emit signal that the socket will be removed */
   g_signal_emit (manager, systray_manager_signals[ICON_REMOVED], 0, socket);
@@ -744,12 +766,11 @@ systray_manager_set_visual (SystrayManager *manager)
   Visual      *xvisual;
   Atom         visual_atom;
   gulong       data[1];
-  GdkColormap *colormap;
   GdkScreen   *screen;
 
   g_return_if_fail (IS_SYSTRAY_MANAGER (manager));
   g_return_if_fail (GTK_IS_INVISIBLE (manager->invisible));
-  g_return_if_fail (GDK_IS_WINDOW (manager->invisible->window));
+  g_return_if_fail (GDK_IS_WINDOW (gtk_widget_get_window(manager->invisible)));
 
   /* get invisible display and screen */
   display = gtk_widget_get_display (manager->invisible);
@@ -769,13 +790,12 @@ systray_manager_set_visual (SystrayManager *manager)
   else
     {
       /* use the default visual for the screen */
-      colormap = gdk_screen_get_default_colormap (screen);
-      xvisual = GDK_VISUAL_XVISUAL (gdk_colormap_get_visual (colormap));
+      xvisual = GDK_VISUAL_XVISUAL (gdk_screen_get_system_visual(screen));
     }
 
   data[0] = XVisualIDFromVisual (xvisual);
   XChangeProperty (GDK_DISPLAY_XDISPLAY (display),
-                   GDK_WINDOW_XWINDOW (manager->invisible->window),
+                   GDK_WINDOW_XID (gtk_widget_get_window(manager->invisible)),
                    visual_atom,
                    XA_VISUALID, 32,
                    PropModeReplace,
@@ -794,7 +814,7 @@ systray_manager_set_orientation (SystrayManager *manager,
 
   g_return_if_fail (IS_SYSTRAY_MANAGER (manager));
   g_return_if_fail (GTK_IS_INVISIBLE (manager->invisible));
-  g_return_if_fail (GDK_IS_WINDOW (manager->invisible->window));
+  g_return_if_fail (GDK_IS_WINDOW (gtk_widget_get_window(manager->invisible)));
 
   /* set the new orientation */
   manager->orientation = orientation;
@@ -813,7 +833,7 @@ systray_manager_set_orientation (SystrayManager *manager,
 
   /* change the x property */
   XChangeProperty (GDK_DISPLAY_XDISPLAY (display),
-                   GDK_WINDOW_XWINDOW (manager->invisible->window),
+                   GDK_WINDOW_XID (gtk_widget_get_window(manager->invisible)),
                    orientation_atom,
                    XA_CARDINAL, 32,
                    PropModeReplace,

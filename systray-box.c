@@ -19,7 +19,6 @@
 #include <string.h>
 #include <math.h>
 
-//#include <exo/exo.h>
 #include <gtk/gtk.h>
 
 #include "systray-box.h"
@@ -40,6 +39,12 @@ static void     systray_box_get_property          (GObject         *object,
 static void     systray_box_finalize              (GObject         *object);
 static void     systray_box_size_request          (GtkWidget       *widget,
                                                    GtkRequisition  *requisition);
+static void systray_box_get_preferred_width (GtkWidget *widget,
+                                gint      *minimal_width,
+                                gint      *natural_width);
+static void systray_box_get_preferred_height (GtkWidget *widget,
+                                gint      *minimal_height,
+                                gint      *natural_height);
 static void     systray_box_size_allocate         (GtkWidget       *widget,
                                                    GtkAllocation   *allocation);
 static void     systray_box_add                   (GtkContainer    *container,
@@ -109,7 +114,8 @@ systray_box_class_init (SystrayBoxClass *klass)
   gobject_class->finalize = systray_box_finalize;
 
   gtkwidget_class = GTK_WIDGET_CLASS (klass);
-  gtkwidget_class->size_request = systray_box_size_request;
+  gtkwidget_class->get_preferred_height = systray_box_get_preferred_height;
+  gtkwidget_class->get_preferred_width = systray_box_get_preferred_width;
   gtkwidget_class->size_allocate = systray_box_size_allocate;
 
   gtkcontainer_class = GTK_CONTAINER_CLASS (klass);
@@ -131,7 +137,7 @@ systray_box_class_init (SystrayBoxClass *klass)
 static void
 systray_box_init (SystrayBox *box)
 {
-  GTK_WIDGET_SET_FLAGS (box, GTK_NO_WINDOW);
+  gtk_widget_set_has_window(GTK_WIDGET(box), FALSE);
 
   box->childeren = NULL;
   box->size_max = SIZE_MAX_DEFAULT;
@@ -196,7 +202,7 @@ systray_box_size_get_max_child_size (SystrayBox *box,
   gint       rows;
   gint       row_size;
 
-  alloc_size -= 2 * GTK_CONTAINER (widget)->border_width;
+  alloc_size -= 2 * gtk_container_get_border_width(GTK_CONTAINER(widget));
 
   /* count the number of rows that fit in the allocated space */
   for (rows = 1;; rows++)
@@ -262,11 +268,11 @@ systray_box_size_request (GtkWidget      *widget,
       child = GTK_WIDGET (li->data);
       g_return_if_fail (IS_SYSTRAY_SOCKET (child));
 
-      gtk_widget_size_request (child, &child_req);
+      gtk_widget_get_preferred_size (child, NULL, &child_req);
 
       /* skip invisible requisitions (see macro) or hidden widgets */
       if (REQUISITION_IS_INVISIBLE (child_req)
-          || !GTK_WIDGET_VISIBLE (child))
+          || !gtk_widget_is_visible (child))
         continue;
 
       hidden = systray_socket_get_hidden (SYSTRAY_SOCKET (child));
@@ -357,11 +363,34 @@ systray_box_size_request (GtkWidget      *widget,
     }
 
   /* add border size */
-  border = GTK_CONTAINER (widget)->border_width * 2;
+  border = gtk_container_get_border_width(GTK_CONTAINER(widget));
   requisition->width += border;
   requisition->height += border;
 }
 
+
+static void
+systray_box_get_preferred_width (GtkWidget *widget,
+                                gint      *minimal_width,
+                                gint      *natural_width)
+{
+    GtkRequisition req;
+    systray_box_size_request(widget, &req);
+    if (minimal_width) *minimal_width = req.width;
+    if (natural_width) *natural_width = req.width;
+}
+
+
+static void
+systray_box_get_preferred_height (GtkWidget *widget,
+                                gint      *minimal_height,
+                                gint      *natural_height)
+{
+    GtkRequisition req;
+    systray_box_size_request(widget, &req);
+    if (minimal_height) *minimal_height = req.height;
+    if (natural_height) *natural_height = req.height;
+}
 
 
 static void
@@ -383,9 +412,9 @@ systray_box_size_allocate (GtkWidget     *widget,
   gint            alloc_size;
   gint            idx;
 
-  widget->allocation = *allocation;
+  gtk_widget_set_allocation(widget, allocation);
 
-  border = GTK_CONTAINER (widget)->border_width;
+  border = gtk_container_get_border_width(GTK_CONTAINER(widget));
 
   alloc_size = box->horizontal ? allocation->height : allocation->width;
 
@@ -418,10 +447,10 @@ systray_box_size_allocate (GtkWidget     *widget,
       child = GTK_WIDGET (li->data);
       g_return_if_fail (IS_SYSTRAY_SOCKET (child));
 
-      if (!GTK_WIDGET_VISIBLE (child))
+      if (!gtk_widget_is_visible (child))
         continue;
 
-      gtk_widget_get_child_requisition (child, &child_req);
+      gtk_widget_get_preferred_size (child, NULL, &child_req);
 
       if (REQUISITION_IS_INVISIBLE (child_req)
           || (!box->show_hidden
@@ -562,7 +591,7 @@ systray_box_add (GtkContainer *container,
 
   g_return_if_fail (IS_SYSTRAY_BOX (box));
   g_return_if_fail (GTK_IS_WIDGET (child));
-  g_return_if_fail (child->parent == NULL);
+  g_return_if_fail (gtk_widget_get_parent(child) == NULL);
 
   box->childeren = g_slist_insert_sorted (box->childeren, child,
                                           systray_box_compare_function);

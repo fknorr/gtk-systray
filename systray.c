@@ -83,12 +83,12 @@ static void     systray_dialog_clear_clicked         (GtkWidget             *but
 
 struct _SystrayClass
 {
-  GtkHBoxClass __parent__;
+  GtkBoxClass __parent__;
 };
 
 struct _Systray
 {
-  GtkHBoxClass __parent__;
+  GtkBoxClass __parent__;
 
   /* systray manager */
   SystrayManager *manager;
@@ -119,7 +119,7 @@ enum
 };
 
 
-G_DEFINE_TYPE(Systray, systray, GTK_TYPE_HBOX)
+G_DEFINE_TYPE(Systray, systray, GTK_TYPE_BOX)
 
 
 /* known applications to improve the icon and name */
@@ -184,12 +184,12 @@ systray_init (Systray *plugin)
   plugin->box = systray_box_new ();
   systray_box_set_show_hidden(SYSTRAY_BOX(plugin->box), TRUE);
   gtk_container_add (GTK_CONTAINER (plugin), plugin->box);
-  g_signal_connect (G_OBJECT (plugin->box), "expose-event",
+  g_signal_connect (G_OBJECT (plugin->box), "draw",
       G_CALLBACK (systray_box_expose_event), NULL);
   gtk_container_set_border_width (GTK_CONTAINER (plugin->box), FRAME_SPACING);
   gtk_widget_show (plugin->box);
 
-  g_signal_connect_after(G_OBJECT(plugin), "expose-event", G_CALLBACK(systray_construct), NULL);
+  g_signal_connect_after(G_OBJECT(plugin), "draw", G_CALLBACK(systray_construct), NULL);
 }
 
 
@@ -303,8 +303,6 @@ systray_screen_changed_idle (gpointer user_data)
   GdkScreen     *screen;
   GError        *error = NULL;
 
-  GDK_THREADS_ENTER ();
-
   /* create a new manager and register this screen */
   plugin->manager = systray_manager_new ();
   g_signal_connect (G_OBJECT (plugin->manager), "icon-added",
@@ -329,8 +327,6 @@ systray_screen_changed_idle (gpointer user_data)
       g_error("Unable to start the notification area");
       g_error_free (error);
     }
-
-  GDK_THREADS_LEAVE ();
 
   return FALSE;
 }
@@ -466,17 +462,17 @@ systray_box_expose_event_icon (GtkWidget *child,
                                       gpointer   user_data)
 {
   cairo_t       *cr = user_data;
-  GtkAllocation *alloc;
+  GtkAllocation alloc;
 
   if (systray_socket_is_composited (SYSTRAY_SOCKET (child)))
     {
-      alloc = &child->allocation;
+        gtk_widget_get_allocation(child, &alloc);
 
       /* skip hidden (see offscreen in box widget) icons */
-      if (alloc->x > -1 && alloc->y > -1)
+      if (alloc.x > -1 && alloc.y > -1)
         {
-          gdk_cairo_set_source_pixmap (cr, gtk_widget_get_window (child),
-                                       alloc->x, alloc->y);
+          gdk_cairo_set_source_window (cr, gtk_widget_get_window (child),
+                                       alloc.x, alloc.y);
           cairo_paint (cr);
         }
     }
