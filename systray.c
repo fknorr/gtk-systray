@@ -23,6 +23,8 @@
 #include "systray-socket.h"
 #include "systray-manager.h"
 
+#include <string.h>
+
 #define ICON_SIZE     (22)
 #define BUTTON_SIZE   (16)
 #define FRAME_SPACING (1)
@@ -95,9 +97,9 @@ struct _Systray
 
   /* widgets */
   GtkWidget      *frame;
-  GtkWidget      *hvbox;
+  GtkWidget      *hbox;
   GtkWidget      *box;
-  GtkWidget      *button;
+  // GtkWidget      *button;
 
   /* settings */
   guint           show_frame : 1;
@@ -170,18 +172,18 @@ systray_class_init (SystrayClass *klass)
                                    PROP_NAMES_HIDDEN,
                                    g_param_spec_boxed ("names-hidden",
                                                        NULL, NULL,
-                                                       G_PROPERTIES_TYPE_VALUE_ARRAY,
+                                                       G_TYPE_STRV,
                                                        G_PARAM_READWRITE));
 
   g_object_class_install_property (gobject_class,
                                    PROP_NAMES_VISIBLE,
                                    g_param_spec_boxed ("names-visible",
                                                        NULL, NULL,
-                                                       G_PROPERTIES_TYPE_VALUE_ARRAY,
+                                                       G_TYPE_STRV,
                                                        G_PARAM_READWRITE));
 }
 
-
+/*
 static void
 systray_set_button_visible(GObject *source, GParamSpec *source_spec, GObject *dest)
 {
@@ -191,6 +193,7 @@ systray_set_button_visible(GObject *source, GParamSpec *source_spec, GObject *de
     g_object_get_property(source, "has-hidden", &value);
     g_object_set_property(dest, "visible", &value);
 }
+*/
 
 
 static void
@@ -213,25 +216,25 @@ systray_init (Systray *plugin)
   gtk_widget_modify_style (plugin->frame, style);
   g_object_unref (G_OBJECT (style));
 
-  plugin->hvbox = xfce_hvbox_new (GTK_ORIENTATION_HORIZONTAL, FALSE, 2);
-  gtk_container_add (GTK_CONTAINER (plugin->frame), plugin->hvbox);
-  gtk_widget_show (plugin->hvbox);
+  plugin->hbox = gtk_hbox_new (FALSE, 2);
+  gtk_container_add (GTK_CONTAINER (plugin->frame), plugin->hbox);
+  gtk_widget_show (plugin->hbox);
 
   plugin->box = systray_box_new ();
-  gtk_box_pack_start (GTK_BOX (plugin->hvbox), plugin->box, TRUE, TRUE, 0);
+  gtk_box_pack_start (GTK_BOX (plugin->hbox), plugin->box, TRUE, TRUE, 0);
   g_signal_connect (G_OBJECT (plugin->box), "expose-event",
       G_CALLBACK (systray_box_expose_event), NULL);
   gtk_container_set_border_width (GTK_CONTAINER (plugin->box), FRAME_SPACING);
   gtk_widget_show (plugin->box);
 
-  plugin->button = xfce_arrow_button_new (GTK_ARROW_RIGHT);
-  gtk_box_pack_start (GTK_BOX (plugin->hvbox), plugin->button, FALSE, FALSE, 0);
+  /*plugin->button = xfce_arrow_button_new (GTK_ARROW_RIGHT);
+  gtk_box_pack_start (GTK_BOX (plugin->hbox), plugin->button, FALSE, FALSE, 0);
   g_signal_connect (G_OBJECT (plugin->button), "toggled",
       G_CALLBACK (systray_button_toggled), plugin);
   gtk_button_set_relief (GTK_BUTTON (plugin->button), GTK_RELIEF_NONE);
-
   g_signal_connect (G_OBJECT(plugin->box), "notify::has-hidden",
           G_CALLBACK(systray_set_button_visible), G_OBJECT(plugin->button));
+  */
 }
 
 
@@ -259,15 +262,17 @@ systray_get_property (GObject    *object,
    case PROP_NAMES_VISIBLE:
       array = g_ptr_array_new ();
       g_hash_table_foreach (plugin->names, systray_names_collect_visible, array);
-      g_value_set_boxed (value, array);
-      xfconf_array_free (array);
+      g_ptr_array_add(array, NULL);
+      g_value_set_boxed (value, array->pdata);
+      g_ptr_array_free (array, TRUE);
       break;
 
     case PROP_NAMES_HIDDEN:
       array = g_ptr_array_new ();
       g_hash_table_foreach (plugin->names, systray_names_collect_hidden, array);
-      g_value_set_boxed (value, array);
-      xfconf_array_free (array);
+      g_ptr_array_add(array, NULL);
+      g_value_set_boxed (value, array->pdata);
+      g_ptr_array_free (array, TRUE);
       break;
 
     default:
@@ -312,9 +317,6 @@ systray_set_property (GObject      *object,
           style->xthickness = style->ythickness = show_frame ? 1 : 0;
           gtk_widget_modify_style (plugin->frame, style);
           g_object_unref (G_OBJECT (style));
-
-          systray_size_changed (PANEL_PLUGIN (plugin),
-              xfce_panel_plugin_get_size (PANEL_PLUGIN (plugin)));
         }
       break;
 
@@ -375,13 +377,14 @@ systray_screen_changed_idle (gpointer user_data)
   screen = gtk_widget_get_screen (GTK_WIDGET (plugin));
   if (systray_manager_register (plugin->manager, screen, &error))
     {
-      /* send the plugin orientation */
+      /* send the plugin orientation
       systray_orientation_changed (PANEL_PLUGIN (plugin),
          xfce_panel_plugin_get_orientation (PANEL_PLUGIN (plugin)));
+        */
     }
   else
     {
-      xfce_dialog_show_error (NULL, error, "Unable to start the notification area");
+      g_error("Unable to start the notification area");
       g_error_free (error);
     }
 
@@ -431,24 +434,8 @@ systray_composited_changed (GtkWidget *widget)
 
 
 static void
-systray_construct (GtkWidget *panel_plugin)
+systray_construct (GtkWidget *plugin)
 {
-  Systray       *plugin = SYSTRAY (panel_plugin);
-  const PanelProperty  properties[] =
-  {
-    { "size-max", G_TYPE_UINT },
-    { "show-frame", G_TYPE_BOOLEAN },
-    { "names-visible", PANEL_PROPERTIES_TYPE_VALUE_ARRAY },
-    { "names-hidden", PANEL_PROPERTIES_TYPE_VALUE_ARRAY },
-    { NULL }
-  };
-
-  xfce_panel_plugin_menu_show_configure (PANEL_PLUGIN (plugin));
-
-  panel_properties_bind (NULL, G_OBJECT (plugin),
-                         xfce_panel_plugin_get_property_base (panel_plugin),
-                         properties, FALSE);
-
   /* monitor screen changes */
   g_signal_connect (G_OBJECT (plugin), "screen-changed",
       G_CALLBACK (systray_screen_changed), NULL);
@@ -489,9 +476,10 @@ static void
 systray_orientation_changed (GtkWidget *panel_plugin,
                                     GtkOrientation   orientation)
 {
+/*
   Systray *plugin = SYSTRAY (panel_plugin);
 
-  xfce_hvbox_set_orientation (HVBOX (plugin->hvbox), orientation);
+  //xfce_hvbox_set_orientation (HVBOX (plugin->hbox), orientation);
   systray_box_set_orientation (SYSTRAY_BOX (plugin->box), orientation);
 
   if (G_LIKELY (plugin->manager != NULL))
@@ -503,6 +491,7 @@ systray_orientation_changed (GtkWidget *panel_plugin,
     gtk_widget_set_size_request (plugin->button, -1, BUTTON_SIZE);
 
   systray_button_set_arrow (plugin);
+  */
 }
 
 
@@ -592,6 +581,7 @@ static void
 systray_button_toggled (GtkWidget     *button,
                                Systray *plugin)
 {
+/*
   g_return_if_fail (IS_SYSTRAY (plugin));
   g_return_if_fail (GTK_IS_TOGGLE_BUTTON (button));
   g_return_if_fail (plugin->button == button);
@@ -599,6 +589,7 @@ systray_button_toggled (GtkWidget     *button,
   systray_box_set_show_hidden (SYSTRAY_BOX (plugin->box),
       gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (button)));
   systray_button_set_arrow (plugin);
+  */
 }
 
 
@@ -606,6 +597,7 @@ systray_button_toggled (GtkWidget     *button,
 static void
 systray_button_set_arrow (Systray *plugin)
 {
+  /*
   GtkArrowType   arrow_type;
   gboolean       show_hidden;
   GtkOrientation orientation;
@@ -620,6 +612,7 @@ systray_button_set_arrow (Systray *plugin)
     arrow_type = show_hidden ? GTK_ARROW_UP : GTK_ARROW_DOWN;
 
   xfce_arrow_button_set_arrow_type (ARROW_BUTTON (plugin->button), arrow_type);
+  */
 }
 
 
@@ -826,7 +819,7 @@ systray_dialog_camel_case (const gchar *text)
   gunichar     c;
   GString     *result;
 
-  g_return_val_if_fail (!exo_str_is_empty (text), NULL);
+  g_return_val_if_fail (text && text[0], NULL);
 
   /* allocate a new string for the result */
   result = g_string_sized_new (32);
@@ -878,8 +871,7 @@ systray_dialog_add_application_names (gpointer key,
   g_return_if_fail (name == NULL || g_utf8_validate (name, -1, NULL));
 
   /* skip invalid names */
-  if (exo_str_is_empty (name))
-     return;
+  g_return_if_fail(name && name[0]);
 
   /* check if we have a better name for the application */
   for (i = 0; i < G_N_ELEMENTS (known_applications); i++)
@@ -899,10 +891,10 @@ systray_dialog_add_application_names (gpointer key,
       title = camelcase;
     }
 
-  /* try to load the icon name */
+  /* try to load the icon name
   if (G_LIKELY (icon_name != NULL))
     pixbuf = xfce_panel_pixbuf_from_source (icon_name, NULL, ICON_SIZE);
-  else
+  else*/
     pixbuf = NULL;
 
   /* insert in the store */
@@ -959,6 +951,7 @@ static void
 systray_dialog_clear_clicked (GtkWidget     *button,
                                      Systray *plugin)
 {
+    /*
   GtkListStore *store;
 
   g_return_if_fail (IS_SYSTRAY (plugin));
@@ -975,4 +968,5 @@ systray_dialog_clear_clicked (GtkWidget     *button,
 
       systray_names_clear (plugin);
     }
+    */
 }
