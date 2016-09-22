@@ -183,7 +183,7 @@ systray_init (Systray *plugin)
 
   plugin->box = systray_box_new ();
   systray_box_set_show_hidden(SYSTRAY_BOX(plugin->box), TRUE);
-  gtk_container_add (GTK_CONTAINER (plugin), plugin->box);
+  gtk_box_pack_start (GTK_BOX (plugin), plugin->box, TRUE, TRUE, 0);
   g_signal_connect (G_OBJECT (plugin->box), "draw",
       G_CALLBACK (systray_box_expose_event), NULL);
   gtk_container_set_border_width (GTK_CONTAINER (plugin->box), FRAME_SPACING);
