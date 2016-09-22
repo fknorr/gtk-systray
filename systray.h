@@ -24,22 +24,22 @@
 G_BEGIN_DECLS
 
 typedef struct _SystrayClass SystrayClass;
-typedef struct _Systray      Systray;
-typedef struct _SystrayChild       SystrayChild;
-typedef enum   _SystrayChildState  SystrayChildState;
+typedef struct _Systray Systray;
+typedef struct _SystrayChild SystrayChild;
+typedef enum _SystrayChildState SystrayChildState;
 
-#define TYPE_SYSTRAY            (systray_get_type ())
-#define SYSTRAY(obj)            (G_TYPE_CHECK_INSTANCE_CAST ((obj), TYPE_SYSTRAY, Systray))
-#define SYSTRAY_CLASS(klass)    (G_TYPE_CHECK_CLASS_CAST ((klass), TYPE_SYSTRAY, SystrayClass))
-#define IS_SYSTRAY(obj)         (G_TYPE_CHECK_INSTANCE_TYPE ((obj), TYPE_SYSTRAY))
-#define IS_SYSTRAY_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), TYPE_SYSTRAY))
-#define SYSTRAY_GET_CLASS(obj)  (G_TYPE_INSTANCE_GET_CLASS ((obj), TYPE_SYSTRAY, SystrayClass))
+#define TYPE_SYSTRAY (systray_get_type())
+#define SYSTRAY(obj) (G_TYPE_CHECK_INSTANCE_CAST((obj), TYPE_SYSTRAY, Systray))
+#define SYSTRAY_CLASS(klass) \
+    (G_TYPE_CHECK_CLASS_CAST((klass), TYPE_SYSTRAY, SystrayClass))
+#define IS_SYSTRAY(obj) (G_TYPE_CHECK_INSTANCE_TYPE((obj), TYPE_SYSTRAY))
+#define IS_SYSTRAY_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE((klass), TYPE_SYSTRAY))
+#define SYSTRAY_GET_CLASS(obj) \
+    (G_TYPE_INSTANCE_GET_CLASS((obj), TYPE_SYSTRAY, SystrayClass))
 
-GType systray_get_type      (void) G_GNUC_CONST;
+GType systray_get_type(void) G_GNUC_CONST;
 
 GtkWidget *systray_new(void);
-
-
 
 G_END_DECLS
 

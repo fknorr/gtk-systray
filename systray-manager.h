@@ -26,44 +26,42 @@
 #include <gtk/gtk.h>
 
 typedef struct _SystrayManagerClass SystrayManagerClass;
-typedef struct _SystrayManager      SystrayManager;
-typedef struct _SystrayMessage      SystrayMessage;
+typedef struct _SystrayManager SystrayManager;
+typedef struct _SystrayMessage SystrayMessage;
 
-#define TYPE_SYSTRAY_MANAGER            (systray_manager_get_type ())
-#define SYSTRAY_MANAGER(obj)            (G_TYPE_CHECK_INSTANCE_CAST ((obj), TYPE_SYSTRAY_MANAGER, SystrayManager))
-#define SYSTRAY_MANAGER_CLASS(klass)    (G_TYPE_CHECK_CLASS_CAST ((klass), TYPE_SYSTRAY_MANAGER, SystrayManagerClass))
-#define IS_SYSTRAY_MANAGER(obj)         (G_TYPE_CHECK_INSTANCE_TYPE ((obj), TYPE_SYSTRAY_MANAGER))
-#define IS_SYSTRAY_MANAGER_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), TYPE_SYSTRAY_MANAGER))
-#define SYSTRAY_MANAGER_GET_CLASS(obj)  (G_TYPE_INSTANCE_GET_CLASS ((obj), TYPE_SYSTRAY_MANAGER, SystrayManagerClass))
-#define SYSTRAY_MANAGER_ERROR           (systray_manager_error_quark())
+#define TYPE_SYSTRAY_MANAGER (systray_manager_get_type())
+#define SYSTRAY_MANAGER(obj) \
+    (G_TYPE_CHECK_INSTANCE_CAST((obj), TYPE_SYSTRAY_MANAGER, SystrayManager))
+#define SYSTRAY_MANAGER_CLASS(klass)                        \
+    (G_TYPE_CHECK_CLASS_CAST((klass), TYPE_SYSTRAY_MANAGER, \
+                             SystrayManagerClass))
+#define IS_SYSTRAY_MANAGER(obj) \
+    (G_TYPE_CHECK_INSTANCE_TYPE((obj), TYPE_SYSTRAY_MANAGER))
+#define IS_SYSTRAY_MANAGER_CLASS(klass) \
+    (G_TYPE_CHECK_CLASS_TYPE((klass), TYPE_SYSTRAY_MANAGER))
+#define SYSTRAY_MANAGER_GET_CLASS(obj)                      \
+    (G_TYPE_INSTANCE_GET_CLASS((obj), TYPE_SYSTRAY_MANAGER, \
+                               SystrayManagerClass))
+#define SYSTRAY_MANAGER_ERROR (systray_manager_error_quark())
 
+enum { SYSTRAY_MANAGER_ERROR_SELECTION_FAILED };
 
+GType systray_manager_get_type(void) G_GNUC_CONST;
 
-enum
-{
-    SYSTRAY_MANAGER_ERROR_SELECTION_FAILED
-};
+GQuark systray_manager_error_quark(void);
 
-
-
-GType           systray_manager_get_type             (void) G_GNUC_CONST;
-
-GQuark          systray_manager_error_quark          (void);
-
-SystrayManager *systray_manager_new                  (void) G_GNUC_MALLOC;
+SystrayManager *systray_manager_new(void) G_GNUC_MALLOC;
 
 #if 0
 gboolean        systray_manager_check_running        (GdkScreen           *screen);
 #endif
 
-gboolean        systray_manager_register             (SystrayManager      *manager,
-                                                      GdkScreen            *screen,
-                                                      GError              **error);
+gboolean systray_manager_register(SystrayManager *manager, GdkScreen *screen,
+                                  GError **error);
 
-void            systray_manager_unregister           (SystrayManager      *manager);
+void systray_manager_unregister(SystrayManager *manager);
 
-void            systray_manager_set_orientation      (SystrayManager      *manager,
-                                                      GtkOrientation       orientation);
-
+void systray_manager_set_orientation(SystrayManager *manager,
+                                     GtkOrientation orientation);
 
 #endif /* !__SYSTRAY_MANAGER_H__ */
