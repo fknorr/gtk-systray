@@ -46,7 +46,7 @@ static gboolean systray_size_changed                 (GtkWidget       *panel_plu
                                                              gint                   size);
 static void     systray_configure_plugin             (GtkWidget       *panel_plugin);
 static void     systray_box_expose_event             (GtkWidget             *box,
-                                                             GdkEventExpose        *event);
+                                                            cairo_t *cr);
 static void     systray_button_toggled               (GtkWidget             *button,
                                                              Systray         *plugin);
 static void     systray_button_set_arrow             (Systray         *plugin);
@@ -482,25 +482,17 @@ systray_box_expose_event_icon (GtkWidget *child,
 
 static void
 systray_box_expose_event (GtkWidget      *box,
-                                 GdkEventExpose *event)
+                                 cairo_t *cr)
 {
-  cairo_t *cr;
-
   if (!gtk_widget_is_composited (box))
     return;
 
-  cr = gdk_cairo_create (gtk_widget_get_window (box));
   if (G_LIKELY (cr != NULL))
     {
-      gdk_cairo_rectangle (cr, &event->area);
-      cairo_clip (cr);
-
       /* separately draw all the composed tray icons after gtk
        * handled the expose event */
       gtk_container_foreach (GTK_CONTAINER (box),
           systray_box_expose_event_icon, cr);
-
-      cairo_destroy (cr);
     }
 }
 
