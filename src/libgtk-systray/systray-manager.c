@@ -759,8 +759,8 @@ systray_manager_message_free(SystrayMessage *message) {
 }
 
 
-static void systray_manager_message_remove_from_list(
-    SystrayManager *manager, XClientMessageEvent *xevent) {
+static void
+systray_manager_message_remove_from_list(SystrayManager *manager, XClientMessageEvent *xevent) {
     GSList *li;
     SystrayMessage *message;
 
