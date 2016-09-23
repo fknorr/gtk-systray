@@ -31,9 +31,11 @@
 
 #include "systray-socket.h"
 
+
 struct _SystraySocketClass {
     GtkSocketClass __parent__;
 };
+
 
 struct _SystraySocket {
     GtkSocket __parent__;
@@ -48,18 +50,23 @@ struct _SystraySocket {
     guint hidden : 1;
 };
 
+
 static void systray_socket_finalize(GObject *object);
+
 static void systray_socket_realize(GtkWidget *widget);
-static void systray_socket_size_allocate(GtkWidget *widget,
-                                         GtkAllocation *allocation);
+
+static void systray_socket_size_allocate(GtkWidget *widget, GtkAllocation *allocation);
+
 static gboolean systray_socket_expose_event(GtkWidget *widget, cairo_t *cr);
 
-static void systray_socket_style_set(GtkWidget *widget,
-                                     GtkStyle *previous_style);
+static void systray_socket_style_set(GtkWidget *widget, GtkStyle *previous_style);
+
 
 G_DEFINE_TYPE(SystraySocket, systray_socket, GTK_TYPE_SOCKET)
 
-static void systray_socket_class_init(SystraySocketClass *klass) {
+
+static void
+systray_socket_class_init(SystraySocketClass *klass) {
     GtkWidgetClass *gtkwidget_class;
     GObjectClass *gobject_class;
 
@@ -73,12 +80,16 @@ static void systray_socket_class_init(SystraySocketClass *klass) {
     gtkwidget_class->style_set = systray_socket_style_set;
 }
 
-static void systray_socket_init(SystraySocket *socket) {
+
+static void
+systray_socket_init(SystraySocket *socket) {
     socket->hidden = FALSE;
     socket->name = NULL;
 }
 
-static void systray_socket_finalize(GObject *object) {
+
+static void
+systray_socket_finalize(GObject *object) {
     SystraySocket *socket = SYSTRAY_SOCKET(object);
 
     g_free(socket->name);
@@ -86,7 +97,9 @@ static void systray_socket_finalize(GObject *object) {
     G_OBJECT_CLASS(systray_socket_parent_class)->finalize(object);
 }
 
-static void systray_socket_realize(GtkWidget *widget) {
+
+static void
+systray_socket_realize(GtkWidget *widget) {
     SystraySocket *socket = SYSTRAY_SOCKET(widget);
     GdkColor transparent = {0, 0, 0, 0};
     GdkWindow *window;
@@ -127,7 +140,9 @@ static void systray_socket_realize(GtkWidget *widget) {
             (socket->parent_relative_bg ? "true" : "false"));
 }
 
-static void systray_socket_size_allocate(GtkWidget *widget,
+
+static void
+systray_socket_size_allocate(GtkWidget *widget,
                                          GtkAllocation *allocation) {
     SystraySocket *socket = SYSTRAY_SOCKET(widget);
     GtkAllocation widget_allocation;
@@ -139,55 +154,45 @@ static void systray_socket_size_allocate(GtkWidget *widget,
                        allocation->height != widget_allocation.height;
 
     if ((moved || resized) && gtk_widget_get_mapped(widget)) {
-        if (socket->is_composited)
+        if (socket->is_composited) {
             gdk_window_invalidate_rect(
                 gdk_window_get_parent(gtk_widget_get_window(widget)),
                 &widget_allocation, FALSE);
+        }
     }
 
     GTK_WIDGET_CLASS(systray_socket_parent_class)
         ->size_allocate(widget, allocation);
 
     if ((moved || resized) && gtk_widget_get_mapped(widget)) {
-        if (socket->is_composited)
+        if (socket->is_composited) {
             gdk_window_invalidate_rect(
                 gdk_window_get_parent(gtk_widget_get_window(widget)),
                 &widget_allocation, FALSE);
-        else if (moved && socket->parent_relative_bg)
+        } else if (moved && socket->parent_relative_bg) {
             systray_socket_force_redraw(socket);
+        }
     }
 }
 
-static gboolean systray_socket_expose_event(GtkWidget *widget, cairo_t *cr) {
-    SystraySocket *socket = SYSTRAY_SOCKET(widget);
 
-    // gdk_window_clear_area does not exist anymore in Gtk3
+static gboolean
+systray_socket_expose_event(GtkWidget *widget, cairo_t *cr) {
+    cairo_set_source_rgba(cr, 0, 0, 0, 0);
+    cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
+    cairo_fill(cr);
 
-    // if (socket->is_composited)
-    {
-        /* clear to transparent */
-        cairo_set_source_rgba(cr, 0, 0, 0, 0);
-        cairo_set_operator(cr, CAIRO_OPERATOR_SOURCE);
-        cairo_fill(cr);
-    }
-    /*else if (socket->parent_relative_bg)
-      {
-       / * clear to parent-relative pixmap * /
-        gdk_window_clear_area (gtk_widget_get_window(widget),
-                               event->area.x,
-                               event->area.y,
-                               event->area.width,
-                               event->area.height);
-      }
-
-      */
     return FALSE;
 }
 
-static void systray_socket_style_set(GtkWidget *widget,
-                                     GtkStyle *previous_style) {}
 
-GtkWidget *systray_socket_new(GdkScreen *screen, Window window) {
+static void
+systray_socket_style_set(GtkWidget *widget, GtkStyle *previous_style) {
+}
+
+
+GtkWidget *
+systray_socket_new(GdkScreen *screen, Window window) {
     SystraySocket *socket;
     GdkDisplay *display;
     XWindowAttributes attr;
@@ -212,28 +217,22 @@ GtkWidget *systray_socket_new(GdkScreen *screen, Window window) {
     /* create a new socket */
     socket = g_object_new(TYPE_SYSTRAY_SOCKET, NULL);
     socket->window = window;
-    socket->is_composited = FALSE;
-    gtk_widget_set_visual(GTK_WIDGET(socket), visual);
-
-    /* check if there is an alpha channel in the visual */
-    // No equivalent in GTK3!
-    // if (visual->red_prec + visual->blue_prec + visual->green_prec <
-    // visual->depth
-    //     && gdk_display_supports_composite (gdk_screen_get_display (screen)))
     socket->is_composited = TRUE;
+    gtk_widget_set_visual(GTK_WIDGET(socket), visual);
 
     return GTK_WIDGET(socket);
 }
 
-void systray_socket_force_redraw(SystraySocket *socket) {
+
+void
+systray_socket_force_redraw(SystraySocket *socket) {
     GtkWidget *widget = GTK_WIDGET(socket);
     XEvent xev;
     GdkDisplay *display;
 
     g_return_if_fail(IS_SYSTRAY_SOCKET(socket));
 
-    if (gtk_widget_get_mapped(GTK_WIDGET(socket)) &&
-        socket->parent_relative_bg) {
+    if (gtk_widget_get_mapped(GTK_WIDGET(socket)) && socket->parent_relative_bg) {
         display = gtk_widget_get_display(widget);
 
         GtkAllocation allocation;
@@ -259,15 +258,17 @@ void systray_socket_force_redraw(SystraySocket *socket) {
     }
 }
 
-gboolean systray_socket_is_composited(SystraySocket *socket) {
+
+gboolean
+systray_socket_is_composited(SystraySocket *socket) {
     g_return_val_if_fail(IS_SYSTRAY_SOCKET(socket), FALSE);
 
     return socket->is_composited;
 }
 
-static gchar *systray_socket_get_name_prop(SystraySocket *socket,
-                                           const gchar *prop_name,
-                                           const gchar *type_name) {
+static gchar *
+systray_socket_get_name_prop(SystraySocket *socket, const gchar *prop_name,
+        const gchar *type_name) {
     GdkDisplay *display;
     Atom req_type, type;
     gint result;
@@ -286,19 +287,17 @@ static gchar *systray_socket_get_name_prop(SystraySocket *socket,
 
     gdk_error_trap_push();
 
-    result = XGetWindowProperty(
-        GDK_DISPLAY_XDISPLAY(display), socket->window,
+    result = XGetWindowProperty(GDK_DISPLAY_XDISPLAY(display), socket->window,
         gdk_x11_get_xatom_by_name_for_display(display, prop_name), 0, G_MAXLONG,
-        False, req_type, &type, &format, &nitems, &bytes_after,
-        (guchar **)&val);
+        False, req_type, &type, &format, &nitems, &bytes_after, (guchar **)&val);
 
     /* check if everything went fine */
-    if (gdk_error_trap_pop() != 0 || result != Success || val == NULL)
+    if (gdk_error_trap_pop() != 0 || result != Success || val == NULL) {
         return NULL;
+    }
 
     /* check the returned data */
-    if (type == req_type && format == 8 && nitems > 0 &&
-        g_utf8_validate(val, nitems, NULL)) {
+    if (type == req_type && format == 8 && nitems > 0 && g_utf8_validate(val, nitems, NULL)) {
         /* lowercase the result */
         name = g_utf8_strdown(val, nitems);
     }
@@ -308,36 +307,46 @@ static gchar *systray_socket_get_name_prop(SystraySocket *socket,
     return name;
 }
 
-const gchar *systray_socket_get_name(SystraySocket *socket) {
+
+const gchar *
+systray_socket_get_name(SystraySocket *socket) {
     g_return_val_if_fail(IS_SYSTRAY_SOCKET(socket), NULL);
 
-    if (G_LIKELY(socket->name != NULL)) return socket->name;
+    if (G_LIKELY(socket->name != NULL)) {
+        return socket->name;
+    }
 
     /* try _NET_WM_NAME first, for gtk icon implementations, fall back to
      * WM_NAME for qt icons */
-    socket->name =
-        systray_socket_get_name_prop(socket, "_NET_WM_NAME", "UTF8_STRING");
-    if (G_UNLIKELY(socket->name == NULL))
-        socket->name =
-            systray_socket_get_name_prop(socket, "WM_NAME", "STRING");
+    socket->name = systray_socket_get_name_prop(socket, "_NET_WM_NAME", "UTF8_STRING");
+    if (G_UNLIKELY(socket->name == NULL)) {
+        socket->name = systray_socket_get_name_prop(socket, "WM_NAME", "STRING");
+    }
 
     return socket->name;
 }
 
-Window systray_socket_get_window(SystraySocket *socket) {
+
+Window
+systray_socket_get_window(SystraySocket *socket) {
     g_return_val_if_fail(IS_SYSTRAY_SOCKET(socket), 0);
 
     return socket->window;
 }
 
-gboolean systray_socket_get_hidden(SystraySocket *socket) {
+
+gboolean
+systray_socket_get_hidden(SystraySocket *socket) {
     g_return_val_if_fail(IS_SYSTRAY_SOCKET(socket), FALSE);
 
     return socket->hidden;
 }
 
-void systray_socket_set_hidden(SystraySocket *socket, gboolean hidden) {
+
+void
+systray_socket_set_hidden(SystraySocket *socket, gboolean hidden) {
     g_return_if_fail(IS_SYSTRAY_SOCKET(socket));
 
     socket->hidden = hidden;
 }
+
